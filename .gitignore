@@ -2,3 +2,5 @@ oqttiles.egg-info/
 build
 dist
 old
+
+oqttiles/*.pyc

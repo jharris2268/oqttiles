@@ -1,3 +1,26 @@
+#-----------------------------------------------------------------------
+#
+# This file is part of oqtsqlite
+#
+# Copyright (C) 2018 James Harris
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#-----------------------------------------------------------------------
+from __future__ import print_function
+
 import oqt
 from . import _oqttiles
 from .geomutils import box, gs
@@ -27,7 +50,7 @@ def get_geoms_iter(geomsfn, ll,target, kw):
 def iter_geoms(geomsfn, hh, poly,minzoom,target=None):
     
     ll=[b for a,b,c in hh if (minzoom is None or (a&31)<=minzoom) and (poly is None or poly(a))]
-    print "%d locs" % len(ll)
+    print("%d locs" % len(ll))
     kw={}
     if not minzoom is None:
         kw['minzoom']=minzoom
@@ -153,9 +176,7 @@ def prep_spec(polypoint, all_tags=False):
             vb.append('point' if a==0 else 'line' if a==1 else 'polygon')
             mzs[k]=(va,vb)
     
-    #if polypoint:
-    #    print 'use polypoint', repr(extra_tags['polypoint']), sum(1 for k,v in mzs.iteritems() if 'polypoint' in v[1])
-        
+       
     
     return mzs, extra_tags
         
@@ -188,7 +209,7 @@ def prep_tiles(geomsfn, hh, x,y,z,callback, minzoom=8,maxzoom=None,use_nt=False,
     
     st=time.time()
     tilepoly=box(*_oqttiles.tile_bound(x,y,z,-0.000001))
-    print "%d %d %d {%s}: %0.1fkm2 [%.80s]" % (x,y,z,tuple_to_str((x,y,z)),tilepoly.area/1000000,tilepoly.wkt)
+    print("%d %d %d {%s}: %0.1fkm2 [%.80s]" % (x,y,z,tuple_to_str((x,y,z)),tilepoly.area/1000000,tilepoly.wkt))
     
     
     pa=prep_pa(tilepoly, maxzoom or 14, callback,use_nt,polypoint,mergegeoms,alltags)
@@ -197,7 +218,7 @@ def prep_tiles(geomsfn, hh, x,y,z,callback, minzoom=8,maxzoom=None,use_nt=False,
     for gg in iter_geoms(geomsfn, hh, testpp(x,y,z),maxzoom,500):
         nobjs+=sum(len(g) for g in gg)
         minq=min((g.Quadtree for g in gg),key=lambda q: q&31)
-        print "[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs)
+        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
         pa(gg)
     pa([])
     return nobjs
@@ -206,7 +227,7 @@ def prep_tiles_lowzoom(geomsfn, hh, callback, maxzoom=7,use_nt=False,polypoint=F
     
     st=time.time()
     tilepoly=box(*_oqttiles.tile_bound(0,0,0,0))
-    print "lowzoom {%s}: %0.1fkm2 [%.80s]" % (tuple_to_str((0,0,0)),tilepoly.area/1000000,tilepoly.wkt)
+    print("lowzoom {%s}: %0.1fkm2 [%.80s]" % (tuple_to_str((0,0,0)),tilepoly.area/1000000,tilepoly.wkt))
     
     
     pa=prep_pa(tilepoly, maxzoom or 14, callback,use_nt,polypoint,mergegeoms,alltags)
@@ -215,7 +236,7 @@ def prep_tiles_lowzoom(geomsfn, hh, callback, maxzoom=7,use_nt=False,polypoint=F
     for gg in iter_geoms(geomsfn, hh, None,maxzoom,25):
         nobjs+=sum(len(g) for g in gg)
         minq=min((g.Quadtree for g in gg),key=lambda q: q&31)
-        print "[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs)
+        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
         pa(gg)
     pa([])
     return nobjs
