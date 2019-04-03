@@ -403,6 +403,54 @@ picojson::value read_value(const std::string& data) {
     throw std::domain_error("can't read value "+data);
 }
 
+py::object read_value_python(const std::string& data) {
+    //tg.tag==2: float 32bit
+    if ( (data.size()==5) && (data[0] == ((2<<3)|5))) { 
+        double r=read_float(data,1);
+        return py::cast(r);
+    } 
+    
+    //tg.tag==3: double 64bit
+    if ( (data.size()==9) && (data[0] == ((3<<3)|1))) {
+        double r=read_double(data,1);
+        return py::cast(r);
+    } 
+    size_t pos=0;
+    oqt::PbfTag tg = oqt::read_pbf_tag(data,pos);
+    if (tg.tag==1) { return py::cast(tg.data); }
+    if (tg.tag==4) { return py::cast(tg.value); }
+    if (tg.tag==5) { return py::cast(int64(tg.value)); }
+    if (tg.tag==6) { return py::cast(oqt::un_zig_zag(tg.value)); }
+    if (tg.tag==7) { return py::cast(tg.value==1); }
+    
+    throw std::domain_error("can't read value "+data);
+}
+
+double read_value_double(const std::string& data) {
+    //tg.tag==3: double 64bit
+    if ( (data.size()==9) && (data[0] == ((3<<3)|1))) {
+        return read_double(data,1);
+        
+    } 
+    size_t pos=0;
+    oqt::PbfTag tg = oqt::read_pbf_tag(data,pos);
+    
+    if (tg.tag==4) { return (double) tg.value; }
+    if (tg.tag==5) { return (double) tg.value; }
+    if (tg.tag==6) { return (double) oqt::un_zig_zag(tg.value); }
+    
+    throw std::domain_error("can't read value "+data+" as double");
+}
+int64 read_value_integer(const std::string& data) {
+    size_t pos=0;
+    oqt::PbfTag tg = oqt::read_pbf_tag(data,pos);
+
+    if (tg.tag==4) { return int64(tg.value); }
+    if (tg.tag==5) { return int64(tg.value); }
+    if (tg.tag==6) { return oqt::un_zig_zag(tg.value); }
+    throw std::domain_error("can't read value "+data+" as integer");
+}
+
 
 oqt::uint64 find_val(std::list<oqt::PbfTag>& layermsgs, oqt::uint64 tg, keylookup& vals, const picojson::value& v) {
     
@@ -800,6 +848,147 @@ py::object cast_packed_tiles(std::shared_ptr<packed_tiles> pt) {
     return result;
 }
 
+
+
+void read_mvt_feature(std::vector<alt_feature_data>& features,
+    const std::vector<std::string>& keys,
+    const std::vector<std::string>& vals,
+    size_t np,
+    const std::string& data) {
+    
+    std::string props;
+    
+    alt_feature_data feat;
+    feat.areaorlen=0.;
+    feat.np = np;
+    
+    size_t pos=0;
+    auto tg = oqt::read_pbf_tag(data,pos);
+    for ( ; tg.tag>0; tg=oqt::read_pbf_tag(data,pos)) {
+        if (tg.tag==1) {
+            feat.id = (int64) tg.value;
+        } else if (tg.tag==2) {
+            props = tg.data;
+            
+            
+        } else if (tg.tag==3) {
+            feat.geom_type = tg.value;
+        } else if (tg.tag==4) {
+            feat.geom_data = tg.data;
+        }
+    }
+    
+    
+    std::list<oqt::PbfTag> pm;
+            
+    auto kvs = oqt::read_packed_int(props);
+    if ((kvs.size()%2) != 0) { throw std::domain_error("unexpected keyvals length"); }
+    for (size_t i=0; i < kvs.size(); i+=2) {
+        const auto& key = keys.at(kvs[i]);
+        const auto& val = vals.at(kvs[i+1]);
+        if (key=="min_zoom"s) {
+            feat.minzoom = read_value_integer(val);
+        } else if ((key=="way_length") && (feat.geom_type==2)) {
+            feat.areaorlen=read_value_double(val);
+        } else if ((key=="way_area") && (feat.geom_type==3)) {
+            feat.areaorlen=read_value_double(val);
+        } else {
+            pm.push_back(oqt::PbfTag{1,0,oqt::pack_pbf_tags({oqt::PbfTag{1,0,key},oqt::PbfTag{2,0,val}})});
+            
+        }
+    }
+    feat.properties = oqt::pack_pbf_tags(pm);            
+    
+    features.push_back(feat);
+    
+    
+}
+
+void read_mvt_layer(std::map<std::string,std::vector<alt_feature_data>>& layers, const std::string& data) {
+    
+    std::vector<std::string> keys;
+    std::vector<std::string> vals;
+    
+    
+    std::vector<alt_feature_data> features;
+    
+    size_t pos = 0;
+    auto tg = oqt::read_pbf_tag(data,pos);
+    
+    if (tg.tag!=15) { throw std::domain_error("expected tag 15 first..."); }
+    if (tg.value!=2) { throw std::domain_error("incorrect version"); }
+    
+    tg = oqt::read_pbf_tag(data,pos);
+    if (tg.tag!=1) { throw std::domain_error("expected tag 1 second..."); }
+    std::string layer_name = tg.data;
+    
+    tg = oqt::read_pbf_tag(data,pos);
+    if (tg.tag!=5) { throw std::domain_error("expected tag 5 third..."); }
+    size_t np = tg.value;
+    
+    tg = oqt::read_pbf_tag(data,pos);
+    for ( ; tg.tag > 0; tg=oqt::read_pbf_tag(data,pos)) {
+        if (tg.tag == 3) {
+            keys.push_back(tg.data);
+        } else if (tg.tag==4) {
+            vals.push_back(tg.data);
+        } else if (tg.tag==2) {
+            read_mvt_feature(features, keys, vals, np, tg.data);
+        }
+    }
+    layers.emplace(layer_name, features);
+}
+            
+    
+    
+
+
+std::map<std::string,std::vector<alt_feature_data>> read_mvt_tile(const std::string& data, bool compressed) {
+    if (compressed) {
+        return read_mvt_tile(oqt::decompress_gzip(data), false);
+    }
+    
+    std::map<std::string,std::vector<alt_feature_data>> layers;
+    
+    size_t pos = 0;
+    auto tg = oqt::read_pbf_tag(data,pos);
+    for ( ; tg.tag>0; tg = oqt::read_pbf_tag(data,pos)) {
+        if (tg.tag == 3) {
+            read_mvt_layer(layers, tg.data);
+        }
+    }
+    return layers;
+}
+
+
+void read_property(py::dict& result, const std::string& data) {
+    
+    size_t pos = 0;
+    auto key = oqt::read_pbf_tag(data,pos);
+    auto val = oqt::read_pbf_tag(data,pos);
+    
+    if (key.tag!=1) { throw std::domain_error("??"); }
+    if (val.tag!=2) { throw std::domain_error("??"); }
+    
+    result[py::cast(key.data)] = read_value_python(val.data);
+}
+    
+
+py::dict read_properties_packed(const std::string& props) {
+    py::dict result;
+    
+    size_t pos=0;
+    auto tg = oqt::read_pbf_tag(props, pos);
+    for ( ; tg.tag>0; tg = oqt::read_pbf_tag(props, pos)) {
+        if (tg.tag==1) {
+            read_property(result, tg.data);
+        }
+    }
+    return result;
+}
+
+
+
 void export_mvt(py::module& m) {
    
     m.def("pack_geometry", [](std::shared_ptr<geos_geometry> g, int64 np) {
@@ -831,5 +1020,11 @@ void export_mvt(py::module& m) {
     m.def("pack_tiles_mvt_from_interim", [](const std::map<xyz,std::map<std::string,std::vector<alt_feature_data>>>& tabs, bool compress, int64 maxlevel) { return cast_packed_tiles(pack_tiles_mvt_from_interim(tabs,compress,maxlevel)); });
     
     m.def("merge_interim_tiles", &merge_interim_tiles);
+    
+    
+    m.def("read_mvt_tile", &read_mvt_tile);
+    
+    m.def("read_properties", &read_properties_packed);
+    
 };
 

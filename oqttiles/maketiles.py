@@ -25,12 +25,12 @@ import oqt
 from . import _oqttiles
 from .geomutils import box, gs
 import time
-tuple_to_str = lambda t: oqt._oqt.quadtree_string(oqt._oqt.quadtree_from_tuple(*t))
+tuple_to_str = lambda t: oqt.elements.quadtree_string(oqt.elements.quadtree_from_tuple(*t))
 
 
 def get_geoms(geomsfn, ll, i,pf,kw):
     gg=[]
-    oqt._oqt.read_blocks_geometry(geomsfn, oqt.utils.addto(gg),ll, **kw)
+    oqt.geometry.read_blocks_geometry(geomsfn, oqt.utils.addto(gg),ll, **kw)
     if not pf is None:
         for g in gg:
             g.FileProgress=i*pf
@@ -160,7 +160,7 @@ def prep_spec(polypoint, all_tags=False):
     extra_tags['polygon_exterior']=(1,extra_tags['polygon'][1])
     
     
-    mzs = dict(((a,b,c),(d,[x for x in e.split(";") if x in extra_tags])) for a,b,c,d,e in oqt.minzoomvalues.default)
+    mzs = dict(((a,b,c),(d,[x for x in e.split(";") if x in extra_tags])) for a,b,c,d,e in oqt.geometry.minzoomvalues.default)
     
     if polypoint:
         
@@ -189,15 +189,15 @@ def prep_pa(poly, minzoom, cb,use_nt,polypoint,mergegeoms=True,alltags=False):
     
 def prep_mtd(filter_box,polypoint=False,alltags=False):
     feats,extra_tags = prep_spec(polypoint,alltags)
-    return MakeTileData(feats, extra_tags, 14, True, True, filter_box, True)
+    return _oqttiles.MakeTileData(feats, extra_tags, 14, True, True, filter_box, True)
 
 
 
 
 class testpp:
     def __init__(self, x,y,z):
-        self.q=oqt._oqt.quadtree_from_tuple(x,y,z)
-        self.bounds=oqt._oqt.quadtree_bbox(self.q,0.05)
+        self.q=oqt.elements.quadtree_from_tuple(x,y,z)
+        self.bounds=oqt.elements.quadtree_bbox(self.q,0.05)
     def __call__(self, q):
         return self.bounds.overlaps_quadtree(q)
 
@@ -218,7 +218,7 @@ def prep_tiles(geomsfn, hh, x,y,z,callback, minzoom=8,maxzoom=None,use_nt=False,
     for gg in iter_geoms(geomsfn, hh, testpp(x,y,z),maxzoom,500):
         nobjs+=sum(len(g) for g in gg)
         minq=min((g.Quadtree for g in gg),key=lambda q: q&31)
-        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
+        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt.elements.quadtree_string(minq),"(%5d %5d %2d)" % oqt.elements.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt.elements.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
         pa(gg)
     pa([])
     return nobjs
@@ -236,7 +236,7 @@ def prep_tiles_lowzoom(geomsfn, hh, callback, maxzoom=7,use_nt=False,polypoint=F
     for gg in iter_geoms(geomsfn, hh, None,maxzoom,25):
         nobjs+=sum(len(g) for g in gg)
         minq=min((g.Quadtree for g in gg),key=lambda q: q&31)
-        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt._oqt.quadtree_string(minq),"(%5d %5d %2d)" % oqt._oqt.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt._oqt.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
+        print("[%9.1fs %6.1f%%] %-18s {%s => %s} %d tiles, %8d objs" % (time.time()-st,gg[-1].FileProgress,oqt.elements.quadtree_string(minq),"(%5d %5d %2d)" % oqt.elements.quadtree_tuple(gg[0].Quadtree), "(%5d %5d %2d)" % (oqt.elements.quadtree_tuple(gg[-1].Quadtree)), len(gg),nobjs))
         pa(gg)
     pa([])
     return nobjs
