@@ -11,7 +11,7 @@ cflags.append('-fvisibility=hidden')
 cflags.append('-Wshadow')
 libs =['-L/usr/local/lib', '-loqt','-lgeos_c']
 
-srcs = ['src/oqttiles.cpp', 'src/geos_wrapper.cpp', 'src/prepare_geometries.cpp', 'src/mvt.cpp', 'src/maketiledata.cpp']
+srcs = ['src/oqttiles.cpp', 'src/geos_wrapper.cpp', 'src/prepare_geometries.cpp', 'src/mvt.cpp', 'src/maketiledata.cpp','src/visalingham_whyatt.cpp']
 
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import customize_compiler

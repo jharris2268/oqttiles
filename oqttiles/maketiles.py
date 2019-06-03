@@ -187,6 +187,7 @@ def prep_spec(polypoint, all_tags=False):
         if polypoint:
             if 'boundary' in vb or 'polygon' in vb:
                 vb.append('polypoint')
+                vb.append('polygon_exterior')
                 mzs[k]=(va,vb)
         
         if not vb:
@@ -197,16 +198,16 @@ def prep_spec(polypoint, all_tags=False):
     
     return mzs, extra_tags
         
-def prep_pa(poly, minzoom, cb,use_nt,polypoint,mergegeoms=True,alltags=False):
+def prep_pa(poly, minzoom, cb,use_nt,polypoint,mergegeoms=True,alltags=False, simp_max=False):
     feats,extra_tags = prep_spec(polypoint,alltags)
     
     if use_nt:
-        return _oqttiles.make_processall_alt_callback_nt(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, cb)
-    return _oqttiles.make_processall_alt_callback(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, cb)
+        return _oqttiles.make_processall_alt_callback_nt(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, cb)
+    return _oqttiles.make_processall_alt_callback(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, cb)
     
-def prep_mtd(filter_box,polypoint=False,alltags=False):
+def prep_mtd(filter_box,polypoint=False,alltags=False,simp_max=False):
     feats,extra_tags = prep_spec(polypoint,alltags)
-    return _oqttiles.MakeTileData(feats, extra_tags, 14, True, True, filter_box, True)
+    return _oqttiles.MakeTileData(feats, extra_tags, 14, True, True, filter_box, True, simp_max)
 
 
 
@@ -307,15 +308,15 @@ class PrepTiles:
         
     
     def write_lowzoom(self, maxzoom=9):
-        self(None,None,None,0,maxzoom)
+        self(None,None,None,0,maxzoom, simp_max=True)
     
-    def __call__(self, x, y, z, minzoom=10, maxzoom=None):
+    def __call__(self, x, y, z, minzoom=10, maxzoom=None, simp_max=False):
         
         st=time.time()
         tilepoly=box(*_oqttiles.tile_bound(0,0,0,0)) if x is None else box(*_oqttiles.tile_bound(x,y,z,-0.000001))
         
         tiles = WriteToMbTiles(self.dbfn, x, y, z, minzoom, maxzoom or 14, self.timestamp, True)
-        pa=prep_pa(tilepoly, maxzoom or 14, tiles,False,self.polypoint,self.mergegeoms,self.alltags)
+        pa=prep_pa(tilepoly, maxzoom or 14, tiles,False,self.polypoint,self.mergegeoms,self.alltags,simp_max)
         
         nobjs=0
         for gg in self.geoms(x,y,z,maxzoom):

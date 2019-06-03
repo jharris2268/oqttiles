@@ -365,7 +365,8 @@ std::shared_ptr<geos_base> geos_geometry::get_base() { return base; }
     
 
 py::object get_coords_py(std::shared_ptr<geos_geometry> geom) {
-    if (geom->is_empty()) {
+    if (!geom) {
+    //if (geom->is_empty()) {
         return py::none();
     }
     
@@ -546,6 +547,9 @@ std::shared_ptr<geos_geometry> geos_geometry_create_collection(std::shared_ptr<g
     int type_=-1;
     std::vector<GEOSGeometry*> geoms;
     for (auto& g: geoms_in) {
+        if (!g) {
+            continue;
+        }
         int gt=as_mm_typeid(g->type_id());
         if (type_==-1) { type_=gt; }
         else if (type_!=gt) { type_=7; }
@@ -893,6 +897,7 @@ void export_geos_geometry(py::module& m) {
         .def_property_readonly("is_empty", &geos_geometry::is_empty)
         
         .def("buffer", &geos_geometry::buffer, py::arg("buffer"), py::arg("quadsegs")=16, py::arg("endcap")=1, py::arg("join")=1, py::arg("mitre")=0.0)
+        .def("buffer_zero", &geos_geometry::buffer_zero)
         .def("simplify", &geos_geometry::simplify)
         
         .def("intersects", &geos_geometry::intersects)

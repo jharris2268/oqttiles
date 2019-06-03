@@ -272,24 +272,26 @@ bool is_box(std::shared_ptr<geos_geometry> geom) {
     return geom->contains(geos_geometry_create_box(geom->get_base(), 0, 0, 256, 256));
 }
 
-size_t add_all_children(xyz basetile, std::shared_ptr<geos_geometry> geom, int64 max_tile, const std::function<void(xyz t, std::shared_ptr<geos_geometry> g)>& cb) {
+size_t add_all_children(xyz basetile, std::shared_ptr<geos_geometry> geom, int64 min_zoom, int64 max_tile, const std::function<void(xyz t, std::shared_ptr<geos_geometry> g)>& cb) {
     xyz last= next_branch(basetile);
     auto tt = next_tile(basetile, max_tile);
-    std::cout << "call add_all_children " << tup_str(basetile) << " max=" << max_tile << " " << tup_str(tt) << " to " << tup_str(last) << std::endl;
+    //std::cout << "call add_all_children " << tup_str(basetile) << " max=" << max_tile << " " << tup_str(tt) << " to " << tup_str(last) << std::endl;
     if (tt==last) { return 0; }
     
     size_t r=0;
     for ( ; tile_lessthan(tt, last); tt = next_tile(tt,max_tile)) {
-        cb(tt,geom);
+        if (std::get<2>(tt)>=min_zoom) {
+            cb(tt,geom);
+        }
         r++;
     }
     return r;
 }
     
 
-void prep_geometries_clip_cb(std::shared_ptr<geos_geometry> geom, xyz basetile, int64 minzoom, int64 max_tile, bool fix_geoms, bool check_box, const std::function<void(xyz t, std::shared_ptr<geos_geometry> g)>& cb) {
+void prep_geometries_clip_cb(std::shared_ptr<geos_geometry> geom, xyz basetile, int64 minzoom, int64 max_tile, bool fix_geoms, bool check_box, const std::function<void(xyz t, std::shared_ptr<geos_geometry> g)>& cb, bool simplify_max) {
     
-    auto geom_simp_temp = prep_geometries_noclip(geom,  minzoom, max_tile, max_tile<14);
+    auto geom_simp_temp = prep_geometries_noclip(geom,  minzoom, max_tile, simplify_max);
     
     if (std::get<2>(basetile) > minzoom) {
         for (int64 zoom=minzoom; zoom < std::get<2>(basetile); zoom++) {
@@ -336,7 +338,7 @@ void prep_geometries_clip_cb(std::shared_ptr<geos_geometry> geom, xyz basetile, 
                     cb(tt,gc);
                 }
                 if (check_box && is_box(gc) && (std::get<2>(tt)<max_tile)) {
-                    /*size_t n =*/ add_all_children(tt, gc, max_tile, cb);
+                    /*size_t n =*/ add_all_children(tt, gc, minzoom, max_tile, cb);
                     //std::cout << tup_str(tt) << " added " << n << " children" << std::endl;
                     tt = next_branch(tt);
                 } else {
@@ -359,11 +361,11 @@ void prep_geometries_clip_cb(std::shared_ptr<geos_geometry> geom, xyz basetile, 
     }
 
 }
-std::map<xyz,std::shared_ptr<geos_geometry>> prep_geometries_clip(std::shared_ptr<geos_geometry> geom, xyz basetile, int64 minzoom, int64 max_tile, bool fix_geoms, bool check_box) {
+std::map<xyz,std::shared_ptr<geos_geometry>> prep_geometries_clip(std::shared_ptr<geos_geometry> geom, xyz basetile, int64 minzoom, int64 max_tile, bool fix_geoms, bool check_box, bool simplify_max) {
         
         
     std::map<xyz, std::shared_ptr<geos_geometry>> geom_simp;        
-    prep_geometries_clip_cb(geom, basetile, minzoom, max_tile, fix_geoms, check_box, [&geom_simp](xyz t, std::shared_ptr<geos_geometry> g) { geom_simp[t]=g; });
+    prep_geometries_clip_cb(geom, basetile, minzoom, max_tile, fix_geoms, check_box, [&geom_simp](xyz t, std::shared_ptr<geos_geometry> g) { geom_simp[t]=g; },simplify_max);
     return geom_simp;
 }
 
@@ -608,9 +610,9 @@ class MakeTileData {
             feature_spec features,
             std::map<std::string,extra_tags_spec> extra_tags,
             int64 max_tile, bool clip_geoms_, bool use_obj_tile_,
-            bbox filter_box_, bool fix_geoms_)
+            bbox filter_box_, bool fix_geoms_, bool simplify_max_)
             
-        : featureproperties(features, extra_tags, max_tile), clip_geoms(clip_geoms_), use_obj_tile(use_obj_tile_), filter_box(filter_box_), fix_geoms(fix_geoms_) {
+        : featureproperties(features, extra_tags, max_tile), clip_geoms(clip_geoms_), use_obj_tile(use_obj_tile_), filter_box(filter_box_), fix_geoms(fix_geoms_), simplify_max(simplify_max_) {
             
             
             
@@ -703,7 +705,7 @@ class MakeTileData {
                         }
                     };
                     
-                    prep_geometries_clip_cb(orig, feat_basetile, minzoom,featureproperties.max_tile(), fix_geoms,false, makefeat);
+                    prep_geometries_clip_cb(orig, feat_basetile, minzoom,featureproperties.max_tile(), fix_geoms,false, makefeat, simplify_max);
                     
                     
                 }
@@ -760,7 +762,7 @@ class MakeTileData {
                 return std::make_pair(std::map<xyz,std::shared_ptr<geos_geometry>>(), bbox());
             }
             if (clip_geoms) {
-                return std::make_pair(prep_geometries_clip(orig, basetile, minzoom, featureproperties.max_tile(), fix_geoms,false), orig->bounds());
+                return std::make_pair(prep_geometries_clip(orig, basetile, minzoom, featureproperties.max_tile(), fix_geoms,false, simp_max), orig->bounds());
             }
             
             return std::make_pair(prep_geometries_noclip(orig, minzoom, featureproperties.max_tile(),simp_max), orig->bounds());
@@ -775,6 +777,7 @@ class MakeTileData {
         bool use_obj_tile;
         bbox filter_box;
         bool fix_geoms;
+        bool simplify_max;
 };
     
 
@@ -837,10 +840,10 @@ class GroupAltTiles {
 std::function<void(oqt::PrimitiveBlockPtr)> make_maketiledata_alt_callback(
 feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile,
-    bbox filter_box, bool fix_geoms, std::function<void(std::shared_ptr<alt_tile_data>)> cb) {
+    bbox filter_box, bool fix_geoms, bool simplify_max, std::function<void(std::shared_ptr<alt_tile_data>)> cb) {
     
     try {
-        auto mtd = std::make_shared<MakeTileData>(features, extra_tags, max_tile, true, use_obj_tile, filter_box, fix_geoms);
+        auto mtd = std::make_shared<MakeTileData>(features, extra_tags, max_tile, true, use_obj_tile, filter_box, fix_geoms, simplify_max);
         
         return [mtd, cb](oqt::PrimitiveBlockPtr bl) {
             if (!bl) { cb(nullptr); return; }
@@ -858,10 +861,11 @@ feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
 std::function<void(oqt::PrimitiveBlockPtr)> make_maketiledata_groupalt_callback(
 feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile,
-    bbox filter_box, bool fix_geoms, const std::vector<xyz>& qts, std::function<void(std::shared_ptr<alt_tile_data_vec>)> cb) {
+    bbox filter_box, bool fix_geoms, bool simplify_max,
+    const std::vector<xyz>& qts, std::function<void(std::shared_ptr<alt_tile_data_vec>)> cb) {
     
     try {
-        auto mtd = std::make_shared<MakeTileData>(features, extra_tags, max_tile, true, use_obj_tile, filter_box, fix_geoms);
+        auto mtd = std::make_shared<MakeTileData>(features, extra_tags, max_tile, true, use_obj_tile, filter_box, fix_geoms,simplify_max);
         auto gat = std::make_shared<GroupAltTiles>(qts,max_tile);
         return [mtd, cb, gat](oqt::PrimitiveBlockPtr bl) {
             if (!bl) { cb(nullptr); return; }
@@ -883,7 +887,7 @@ void export_maketiledata(py::module& m) {
     
     
     py::class_<MakeTileData>(m, "MakeTileData")
-        .def(py::init<feature_spec,std::map<std::string,extra_tags_spec>,int64,bool,bool,bbox,bool>())
+        .def(py::init<feature_spec,std::map<std::string,extra_tags_spec>,int64,bool,bool,bbox,bool,bool>())
         //.def("make_feature_data", &MakeTileData::make_feature_data)
         //.def("make_tile_data", &MakeTileData::make_tile_data)
         

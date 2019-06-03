@@ -112,7 +112,7 @@ class WrapCb {
 std::shared_ptr<WrapCb> make_processall_alt_callback(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats,
-    py::object cb) {
+    bool simplify_max, py::object cb) {
 
     size_t nt=4;
     if (!filter_poly) { throw std::domain_error("no filter_poly"); }
@@ -137,7 +137,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
     
     std::vector<std::function<void(oqt::PrimitiveBlockPtr)>> pas;
     for(size_t i=0; i < nt; i++) {
-        auto mtdc = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  abt[i]);
+        auto mtdc = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  simplify_max, abt[i]);
         pas.push_back(oqt::threaded_callback<oqt::PrimitiveBlock>::make(mtdc));
     }
         
@@ -153,7 +153,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
 std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats, 
-    py::object cb) {
+    bool simplify_max, py::object cb) {
 
     if (!filter_poly) { throw std::domain_error("no filter_poly"); }
     
@@ -172,7 +172,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
     
     auto abt = make_addblockstree_alt_cb(filter_poly,{mt},max_tile);
     
-    auto pa = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  abt);
+    auto pa = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  simplify_max, abt);
     
     return std::make_shared<WrapCb>("processall_alt_callback_nt", pa);
    
@@ -181,7 +181,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
 
 std::shared_ptr<WrapCb> make_processall_groupalt_callback(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
-    int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats, const std::vector<xyz>& qts,
+    int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats, bool simplify_max, const std::vector<xyz>& qts,
     py::object cb) {
 
     size_t nt=4;
@@ -207,7 +207,7 @@ std::shared_ptr<WrapCb> make_processall_groupalt_callback(
     
     std::vector<std::function<void(oqt::PrimitiveBlockPtr)>> pas;
     for(size_t i=0; i < nt; i++) {
-        auto mtdc = make_maketiledata_groupalt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  qts, abt[i]);
+        auto mtdc = make_maketiledata_groupalt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  simplify_max, qts, abt[i]);
         pas.push_back(oqt::threaded_callback<oqt::PrimitiveBlock>::make(mtdc));
     }
         
@@ -249,6 +249,9 @@ void export_geos_geometry(py::module& m);
 void export_prepare_geometries(py::module& m);
 void export_mvt(py::module& m);
 void export_maketiledata(py::module& m);
+
+void export_vw(py::module& m);
+
 PYBIND11_PLUGIN(_oqttiles) {
     
     
@@ -259,6 +262,7 @@ PYBIND11_PLUGIN(_oqttiles) {
     export_geos_geometry(m);
     export_mvt(m);
     export_maketiledata(m);
+    export_vw(m);
     return m.ptr();
 }
 
