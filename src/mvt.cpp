@@ -987,7 +987,33 @@ py::dict read_properties_packed(const std::string& props) {
     return result;
 }
 
-
+alt_feature_data prep_alt_feature_data_py(int64 id, std::map<std::string,py::object> properties, std::shared_ptr<geos_geometry> geom, int64 minzoom, int64 np) {
+    
+    property_map pm;
+    for (const auto& kv: properties) {
+        try {
+            auto d = py::cast<double>(kv.second);
+            pm[kv.first]=picojson::value(d);
+        } catch(...) {
+            try {
+                auto i = py::cast<int64>(kv.second);
+                pm[kv.first]=picojson::value(i);
+            } catch(...) {
+                try {
+                    auto s = py::cast<std::string>(kv.second);
+                    pm[kv.first]=picojson::value(s);
+                } catch(...) {
+                    throw std::domain_error("??");
+                }
+            }
+        }
+    }
+    
+    return prep_alt_feature_data(id,pm,geom,minzoom,np);
+}
+        
+    
+    
 
 void export_mvt(py::module& m) {
    
@@ -1000,7 +1026,7 @@ void export_mvt(py::module& m) {
     
     m.def("pack_propertymap_interim", [](const property_map& pm, size_t gt) { auto r=pack_propertymap_interim(pm,gt); return py::make_tuple(py::bytes(r.first),py::cast(r.second));});
     
-    m.def("prep_alt_feature_data", &prep_alt_feature_data);
+    m.def("prep_alt_feature_data", &prep_alt_feature_data_py);
     
     py::class_<alt_feature_data>(m, "alt_feature_data")
         .def_readonly("id", &alt_feature_data::id)
@@ -1014,6 +1040,8 @@ void export_mvt(py::module& m) {
             return py::make_tuple(d.id,py::bytes(d.properties), d.areaorlen, d.geom_type,d.np, py::bytes(d.geom_data), d.minzoom);
         })
     ;
+
+    
     m.def("merge_interim_features", &merge_interim_features);
     m.def("pack_layer_from_interim", [](int64 x, int64 y, int64 z, std::string t, const std::vector<alt_feature_data>& ff, int64 np) { return py::bytes(pack_layer_from_interim(x,y,z,t, ff,np)); });
     m.def("pack_tile_mvt_from_interim", [](int64 x, int64 y, int64 z, const std::map<std::string,std::vector<alt_feature_data>>& ff, int64 np) { return py::bytes(pack_tile_mvt_from_interim(x,y,z,ff,np)); });

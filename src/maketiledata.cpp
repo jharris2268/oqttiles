@@ -781,7 +781,7 @@ class MakeTileData {
 };
     
 
-
+/*
 
 class GroupAltTiles {
     public:
@@ -833,7 +833,7 @@ class GroupAltTiles {
         int64 maxlevel;
 };
     
-
+*/
 
 
 
@@ -857,7 +857,7 @@ feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     return nullptr;
 }
 
-
+/*
 std::function<void(oqt::PrimitiveBlockPtr)> make_maketiledata_groupalt_callback(
 feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile,
@@ -879,7 +879,7 @@ feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     }
     return nullptr;
 }
-
+*/
 
 
 void export_maketiledata(py::module& m) {
@@ -925,17 +925,21 @@ void export_maketiledata(py::module& m) {
     
     m.def("make_maketiledata_alt_callback", &make_maketiledata_alt_callback);
     
-    m.def("make_maketiledata_groupalt_callback", &make_maketiledata_groupalt_callback);
+    //m.def("make_maketiledata_groupalt_callback", &make_maketiledata_groupalt_callback);
      
     py::class_<alt_tile_data, std::shared_ptr<alt_tile_data>>(m, "alt_tile_data")
+        .def(py::init<>())
         .def_readonly("tile_xyz", &alt_tile_data::tile_xyz)
         .def_readonly("objs", &alt_tile_data::objs)
+        .def("add", [](alt_tile_data& atd, xyz tile, std::string tab, alt_feature_data f) {
+            atd.objs[std::make_pair(tile,tab)].push_back(f);
+        })
     ;
-    py::class_<GroupAltTiles,std::shared_ptr<GroupAltTiles>>(m,"GroupAltTiles")
+    /*py::class_<GroupAltTiles,std::shared_ptr<GroupAltTiles>>(m,"GroupAltTiles")
         .def(py::init<std::vector<xyz>,int64>())
         .def("__call__", &GroupAltTiles::call)
         .def("find_key", &GroupAltTiles::find_key);
-    ;
+    ;*/
     m.def("is_box", &is_box);
 }
 

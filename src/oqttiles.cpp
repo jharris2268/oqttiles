@@ -112,7 +112,7 @@ class WrapCb {
 std::shared_ptr<WrapCb> make_processall_alt_callback(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats,
-    bool simplify_max, py::object cb) {
+    bool simplify_max, std::shared_ptr<alt_tile_data> otherfeatures, py::object cb) {
 
     size_t nt=4;
     if (!filter_poly) { throw std::domain_error("no filter_poly"); }
@@ -132,8 +132,14 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
         mts.push_back(oqt::threaded_callback<alt_tile_data_vec>::make(make_merge_interim_tiles_callback(true, max_tile, fix_geom, mergefeats, cpt_cb[i])));
     }
     
+    auto mt = oqt::split_callback<alt_tile_data_vec>::make(mts);
+    if (otherfeatures) {
+        
+        mt = oqt::threaded_callback<alt_tile_data_vec>::make(make_addotherfeatures(otherfeatures, mt));
+    }
+        
     
-    auto abt = oqt::multi_threaded_callback<alt_tile_data>::make(make_addblockstree_alt_cb(filter_poly,mts,max_tile), nt);
+    auto abt = oqt::multi_threaded_callback<alt_tile_data>::make(make_addblockstree_alt_cb(filter_poly, mt,max_tile), nt);
     
     std::vector<std::function<void(oqt::PrimitiveBlockPtr)>> pas;
     for(size_t i=0; i < nt; i++) {
@@ -153,7 +159,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
 std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats, 
-    bool simplify_max, py::object cb) {
+    bool simplify_max, std::shared_ptr<alt_tile_data> otherfeatures, py::object cb) {
 
     if (!filter_poly) { throw std::domain_error("no filter_poly"); }
     
@@ -169,8 +175,10 @@ std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
     
     alt_tile_data_vec_cb mt = make_merge_interim_tiles_callback(true, max_tile, fix_geom, mergefeats, cpt_cb);
     
-    
-    auto abt = make_addblockstree_alt_cb(filter_poly,{mt},max_tile);
+    if (otherfeatures) {
+        mt = make_addotherfeatures(otherfeatures, mt);
+    }
+    auto abt = make_addblockstree_alt_cb(filter_poly, mt,max_tile);
     
     auto pa = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  simplify_max, abt);
     
@@ -178,7 +186,7 @@ std::shared_ptr<WrapCb> make_processall_alt_callback_nt(
    
 }
 
-
+/*
 std::shared_ptr<WrapCb> make_processall_groupalt_callback(
     std::shared_ptr<geos_base> gs, feature_spec features, std::map<std::string,extra_tags_spec> extra_tags,
     int64 max_tile, bool use_obj_tile, std::shared_ptr<geos_geometry> filter_poly, bool fix_geom, bool mergefeats, bool simplify_max, const std::vector<xyz>& qts,
@@ -217,7 +225,7 @@ std::shared_ptr<WrapCb> make_processall_groupalt_callback(
     return std::make_shared<WrapCb>("processall_alt_callback", pa);
    
 }
-
+*/
 
     
     
@@ -235,7 +243,7 @@ void export_oqttile(py::module& m) {
     
     m.def("make_processall_alt_callback", &make_processall_alt_callback);
     m.def("make_processall_alt_callback_nt", &make_processall_alt_callback_nt);
-    m.def("make_processall_groupalt_callback", &make_processall_groupalt_callback);
+    //m.def("make_processall_groupalt_callback", &make_processall_groupalt_callback);
     
     py::class_<WrapCb,std::shared_ptr<WrapCb>>(m,"WrapCb")
         .def("__repr__", &WrapCb::repr)

@@ -198,12 +198,12 @@ def prep_spec(polypoint, all_tags=False):
     
     return mzs, extra_tags
         
-def prep_pa(poly, minzoom, cb,use_nt,polypoint,mergegeoms=True,alltags=False, simp_max=False):
+def prep_pa(poly, minzoom, cb,use_nt,polypoint,mergegeoms=True,alltags=False, simp_max=False,otherfeatures=None):
     feats,extra_tags = prep_spec(polypoint,alltags)
     
     if use_nt:
-        return _oqttiles.make_processall_alt_callback_nt(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, cb)
-    return _oqttiles.make_processall_alt_callback(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, cb)
+        return _oqttiles.make_processall_alt_callback_nt(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, otherfeatures,cb)
+    return _oqttiles.make_processall_alt_callback(gs, feats, extra_tags, minzoom,True,poly, True, mergegeoms, simp_max, otherfeatures,cb)
     
 def prep_mtd(filter_box,polypoint=False,alltags=False,simp_max=False):
     feats,extra_tags = prep_spec(polypoint,alltags)
@@ -226,7 +226,7 @@ class testpp:
                 return False
         if self.bounds is None:
             return True
-        return elf.bounds.overlaps_quadtree(q)
+        return self.bounds.overlaps_quadtree(q)
 
 
 MERGEGEOMS=True#False
@@ -275,6 +275,9 @@ class WriteToMbTiles:
         
         
     def __call__(self, tls):
+        if not tls:
+            print('nothing to write')
+            return
         print("write %d tiles to %s [%s]" % (len(tls),self.fn,self.basetile))
         tiles=mbt.MBTiles(self.fn)
         tiles.start()
@@ -307,19 +310,19 @@ class PrepTiles:
         self.alltags=alltags
         
     
-    def write_lowzoom(self, maxzoom=9):
-        self(None,None,None,0,maxzoom, simp_max=True)
+    def write_lowzoom(self, maxzoom=9, otherfeatures=None, nothread=False):
+        self(None,None,None,0,maxzoom, simp_max=True,otherfeatures=otherfeatures,nothread=nothread)
     
-    def __call__(self, x, y, z, minzoom=10, maxzoom=None, simp_max=False):
-        
+    
+    def write_with_objs(self, objs, x, y, z, minzoom, maxzoom, simp_max, otherfeatures,nothread):
         st=time.time()
         tilepoly=box(*_oqttiles.tile_bound(0,0,0,0)) if x is None else box(*_oqttiles.tile_bound(x,y,z,-0.000001))
         
         tiles = WriteToMbTiles(self.dbfn, x, y, z, minzoom, maxzoom or 14, self.timestamp, True)
-        pa=prep_pa(tilepoly, maxzoom or 14, tiles,False,self.polypoint,self.mergegeoms,self.alltags,simp_max)
+        pa=prep_pa(tilepoly, maxzoom or 14, tiles,nothread,self.polypoint,self.mergegeoms,self.alltags,simp_max,otherfeatures)
         
         nobjs=0
-        for gg in self.geoms(x,y,z,maxzoom):
+        for gg in objs:
             if not gg:
                 continue
             nobjs+=sum(len(g) for g in gg)
@@ -331,6 +334,13 @@ class PrepTiles:
         tiles.write_summary()
         print("[%7.1fs] %s: %d objs, %d tiles" % (time.time()-st,tiles.basetile,nobjs,tiles.total))
         return tiles.total
+    
+    
+    def __call__(self, x, y, z, minzoom=10, maxzoom=None, simp_max=False, otherfeatures=None, nothread=False):
+        
+        return self.write_with_objs(self.geoms(x,y,z,maxzoom), x,y,z,minzoom,maxzoom,simp_max,otherfeatures,nothread)
+        
+        
         
         
         
