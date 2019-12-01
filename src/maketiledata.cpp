@@ -929,7 +929,7 @@ void export_maketiledata(py::module& m) {
      
     py::class_<alt_tile_data, std::shared_ptr<alt_tile_data>>(m, "alt_tile_data")
         .def(py::init<>())
-        .def_readonly("tile_xyz", &alt_tile_data::tile_xyz)
+        .def_readwrite("tile_xyz", &alt_tile_data::tile_xyz)
         .def_readonly("objs", &alt_tile_data::objs)
         .def("add", [](alt_tile_data& atd, xyz tile, std::string tab, alt_feature_data f) {
             atd.objs[std::make_pair(tile,tab)].push_back(f);

@@ -106,7 +106,19 @@ class WrapCb {
 };
         
         
-            
+template <class T>
+std::function<void(std::shared_ptr<T>)> wrap_callback(std::function<void(std::shared_ptr<T>)> cb, std::string what) {
+    
+    return [cb,what](std::shared_ptr<T> bl) {
+        try {
+            cb(bl);
+        } catch(std::exception& ex) {
+            std::cout << "?? " << what << ": " << ex.what() << std::endl;
+        }
+    };
+}
+        
+    
         
 
 std::shared_ptr<WrapCb> make_processall_alt_callback(
@@ -119,7 +131,10 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
     
     auto cpt = std::make_shared<collect_packed_tiles>(cb);
     
-    auto cpt_cb = oqt::multi_threaded_callback<packed_tiles>::make([cpt](std::shared_ptr<packed_tiles> pt) { cpt->call(pt); }, nt);
+    auto cpt2 = [cpt](std::shared_ptr<packed_tiles> pt) { cpt->call(pt); };
+    auto cpt2w = wrap_callback<packed_tiles>(cpt2, "collect_packed_tiles");
+    
+    auto cpt_cb = oqt::multi_threaded_callback<packed_tiles>::make(cpt2w, nt);
 
     bbox filter_poly_bounds = filter_poly->bounds();
     double xb = (std::get<2>(filter_poly_bounds)-std::get<0>(filter_poly_bounds))*0.025;
@@ -129,22 +144,28 @@ std::shared_ptr<WrapCb> make_processall_alt_callback(
     
     std::vector<alt_tile_data_vec_cb> mts;
     for (size_t i=0; i < nt; i++) {
-        mts.push_back(oqt::threaded_callback<alt_tile_data_vec>::make(make_merge_interim_tiles_callback(true, max_tile, fix_geom, mergefeats, cpt_cb[i])));
+        mts.push_back(oqt::threaded_callback<alt_tile_data_vec>::make(
+            wrap_callback(
+                make_merge_interim_tiles_callback(true, max_tile, fix_geom, mergefeats, cpt_cb[i]),
+                "merge_interim_tiles "+std::to_string(i)
+            )));
     }
     
     auto mt = oqt::split_callback<alt_tile_data_vec>::make(mts);
     if (otherfeatures) {
         
-        mt = oqt::threaded_callback<alt_tile_data_vec>::make(make_addotherfeatures(otherfeatures, mt));
+        mt = oqt::threaded_callback<alt_tile_data_vec>::make(wrap_callback(make_addotherfeatures(otherfeatures, mt),"addotherfeatures"));
     }
         
     
-    auto abt = oqt::multi_threaded_callback<alt_tile_data>::make(make_addblockstree_alt_cb(filter_poly, mt,max_tile), nt);
+    auto abt = oqt::multi_threaded_callback<alt_tile_data>::make(wrap_callback(make_addblockstree_alt_cb(filter_poly, mt,max_tile),"addblockstree"), nt);
     
     std::vector<std::function<void(oqt::PrimitiveBlockPtr)>> pas;
     for(size_t i=0; i < nt; i++) {
         auto mtdc = make_maketiledata_alt_callback(features, extra_tags, max_tile, use_obj_tile, buffered_bounds,fix_geom,  simplify_max, abt[i]);
-        pas.push_back(oqt::threaded_callback<oqt::PrimitiveBlock>::make(mtdc));
+        
+        auto mtdcw = wrap_callback(mtdc, "maketiledata_alt "+std::to_string(i));
+        pas.push_back(oqt::threaded_callback<oqt::PrimitiveBlock>::make(mtdcw));
     }
         
    

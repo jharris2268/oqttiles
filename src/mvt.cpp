@@ -427,6 +427,13 @@ py::object read_value_python(const std::string& data) {
 }
 
 double read_value_double(const std::string& data) {
+    //tg.tag==2: float 32bit
+    if ( (data.size()==5) && (data[0] == ((2<<3)|5))) { 
+        return read_float(data,1);
+        
+    } 
+    
+    
     //tg.tag==3: double 64bit
     if ( (data.size()==9) && (data[0] == ((3<<3)|1))) {
         return read_double(data,1);
@@ -442,6 +449,17 @@ double read_value_double(const std::string& data) {
     throw std::domain_error("can't read value "+data+" as double");
 }
 int64 read_value_integer(const std::string& data) {
+    
+    if ( (data.size()==5) && (data[0] == ((2<<3)|5))) { 
+        return (int64) read_float(data,1);
+        
+    } 
+    
+    if ( (data.size()==9) && (data[0] == ((3<<3)|1))) {
+        return (int64) read_double(data,1);
+        
+    }    
+    
     size_t pos=0;
     oqt::PbfTag tg = oqt::read_pbf_tag(data,pos);
 
@@ -725,7 +743,7 @@ std::vector<alt_feature_data> merge_interim_features(const std::vector<alt_featu
         } else {
             
             if (it->second.first.geom_type != f.geom_type) {
-                throw std::domain_error("inconsitent geom_type");
+                throw std::domain_error("inconsistent geom_type");
             }
             if (f.minzoom < it->second.first.minzoom) {
                 it->second.first.minzoom = f.minzoom;
@@ -1013,8 +1031,17 @@ alt_feature_data prep_alt_feature_data_py(int64 id, std::map<std::string,py::obj
 }
         
     
-    
-
+alt_feature_data make_alt_feature_data(int64 id, std::string properties, double areaorlen, int64 geom_type, int64 np, std::string geom_data, int64 minzoom) {
+    alt_feature_data r;
+    r.id=id;
+    r.properties=properties;
+    r.areaorlen=areaorlen;
+    r.geom_type=geom_type;
+    r.np=np;
+    r.geom_data=geom_data;
+    r.minzoom=minzoom;
+    return r;
+}
 void export_mvt(py::module& m) {
    
     m.def("pack_geometry", [](std::shared_ptr<geos_geometry> g, int64 np) {
@@ -1027,7 +1054,7 @@ void export_mvt(py::module& m) {
     m.def("pack_propertymap_interim", [](const property_map& pm, size_t gt) { auto r=pack_propertymap_interim(pm,gt); return py::make_tuple(py::bytes(r.first),py::cast(r.second));});
     
     m.def("prep_alt_feature_data", &prep_alt_feature_data_py);
-    
+    m.def("make_alt_feature_data", &make_alt_feature_data);
     py::class_<alt_feature_data>(m, "alt_feature_data")
         .def_readonly("id", &alt_feature_data::id)
         .def_readonly("geom_type", &alt_feature_data::geom_type)
@@ -1053,6 +1080,13 @@ void export_mvt(py::module& m) {
     m.def("read_mvt_tile", &read_mvt_tile);
     
     m.def("read_properties", &read_properties_packed);
+    m.def("read_value_python", &read_value_python);
+    m.def("read_mvt_feature", [](const std::vector<std::string>& keys, const std::vector<std::string>& vals,size_t np, const std::string& data) {
+        std::vector<alt_feature_data> features;
+        read_mvt_feature(features,keys,vals,np,data);
+        if (features.empty()) { return py::object(); }
+        return py::cast(features.at(0));
+    });
     
 };
 

@@ -60,7 +60,7 @@ def get_geoms_iter(geomsfn, ll,target, kw):
             tot=0
     
     if mm:
-        get_geoms(geomsfn, mm,i,pf,kw)
+        yield get_geoms(geomsfn, mm,i,pf,kw)
     
 
 def iter_geoms(geomsfn, hh, poly,minzoom,target=None):
@@ -83,7 +83,7 @@ def iter_geoms(geomsfn, hh, poly,minzoom,target=None):
 def prep_spec(polypoint, all_tags=False):
     extra_tags={}
     
-    extra_tags['boundary'] = (1,[([],4,'boundary'),([],4,'admin_level'),([],4,'name'), ([],4,'name:en')])    
+    extra_tags['boundary'] = (1,[([],3,'boundary'),([],3,'admin_level'),([],3,'name'), ([],3,'name:en')])    
     if all_tags:
         extra_tags['point'] = (0,[([],0,'*')])
         extra_tags['line'] = (1,[([],0,'*')])
@@ -180,13 +180,15 @@ def prep_spec(polypoint, all_tags=False):
     mzs = dict(((a,b,c),(d,[x for x in e.split(";") if x in extra_tags])) for a,b,c,d,e in oqt.geometry.minzoomvalues.default)
     
     if polypoint:
+        et = extra_tags['polygon'][1][:]
+        et += [([('admin_level','*')],b,c) for a,b,c in extra_tags['boundary'][1]]
         
-        extra_tags['polypoint']=(0,extra_tags['polygon'][1])
-    
+        extra_tags['polygon_point']=(0,et)
+        
     for k,(va,vb) in mzs.items():
         if polypoint:
             if 'boundary' in vb or 'polygon' in vb:
-                vb.append('polypoint')
+                vb.append('polygon_point')
                 vb.append('polygon_exterior')
                 mzs[k]=(va,vb)
         
@@ -235,10 +237,9 @@ ALLTAGS=False#True
 class GeometryFromFile:
     def __init__(self, geomsfn):
         self.geomsfn=geomsfn
-        
         self.hh=oqt.pbfformat.get_header_block(geomsfn).Index
-    def __call__(self, x, y, z,maxzoom=None):
-        return iter_geoms(self.geomsfn, self.hh, testpp(x,y,z,maxzoom),maxzoom)
+    def __call__(self, x, y, z,maxzoom=None,target=None):
+        return iter_geoms(self.geomsfn, self.hh, testpp(x,y,z,maxzoom),maxzoom,target)
 
 class GeometryFromOqt:
     def __init__(self, prfx, timestamp=None):
@@ -281,7 +282,7 @@ class WriteToMbTiles:
         print("write %d tiles to %s [%s]" % (len(tls),self.fn,self.basetile))
         tiles=mbt.MBTiles(self.fn)
         tiles.start()
-        for (x,y,z),data in tls.iteritems():
+        for (x,y,z),data in tls.items():
             if (not self.minzoom is None) and z<self.minzoom:
                 continue
             if (not self.maxzoom is None) and z>self.maxzoom:
