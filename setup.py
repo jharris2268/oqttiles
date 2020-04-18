@@ -1,6 +1,7 @@
 from setuptools import setup, Extension
 import setuptools
 import shutil, os.path, subprocess
+import pybind11
 
 def call_pkgconfig(args):
     ans = subprocess.check_output(args)
@@ -33,6 +34,7 @@ ext_modules = [
             #'/home/james/build/boost_1_65_1',
             '/usr/local/include',
             '/home/james/work/oqtcpp/include',
+            pybind11.get_include(),
             #'/home/james/build/mapbox_geometry/include',
             
         ],
