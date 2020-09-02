@@ -9,7 +9,7 @@ def call_pkgconfig(args):
 cflags = ['-std=c++14','-DPICOJSON_USE_INT64']
 cflags.append('-I/home/james/work/oqtcpp/include')
 cflags.append('-fvisibility=hidden')
-cflags.append('-Wshadow')
+#cflags.append('-Wshadow')
 libs =['-L/usr/local/lib', '-loqt','-lgeos_c']
 
 srcs = ['src/oqttiles.cpp', 'src/geos_wrapper.cpp', 'src/prepare_geometries.cpp', 'src/mvt.cpp', 'src/maketiledata.cpp','src/visalingham_whyatt.cpp']
@@ -20,10 +20,11 @@ from distutils.sysconfig import customize_compiler
 class my_build_ext(build_ext):
     def build_extensions(self):
         customize_compiler(self.compiler)
-        try:
-            self.compiler.compiler_so.remove("-Wstrict-prototypes")
-        except (AttributeError, ValueError):
-            pass
+        for w in ("-Wstrict-prototypes",):
+            try:
+                self.compiler.compiler_so.remove("-Wstrict-prototypes")
+            except (AttributeError, ValueError):
+                pass
         build_ext.build_extensions(self)
 
 ext_modules = [

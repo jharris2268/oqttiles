@@ -281,10 +281,10 @@ void export_maketiledata(py::module& m);
 
 void export_vw(py::module& m);
 
-PYBIND11_PLUGIN(_oqttiles) {
+PYBIND11_MODULE(_oqttiles, m) {
     
     
-    py::module m("_oqttiles", "oqttiles");
+    //py::module m("_oqttiles", "oqttiles");
     export_oqttile(m);
     
     export_prepare_geometries(m);
@@ -292,7 +292,7 @@ PYBIND11_PLUGIN(_oqttiles) {
     export_mvt(m);
     export_maketiledata(m);
     export_vw(m);
-    return m.ptr();
+    //return m.ptr();
 }
 
 
