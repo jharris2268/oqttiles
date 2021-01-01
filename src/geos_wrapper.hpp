@@ -1,7 +1,7 @@
 #ifndef GEOS_WRAPPER_HPP
 #define GEOS_WRAPPER_HPP
 
-#include <picojson_prec.h>
+#include "picojson_prec.h"
 
 #include "geos_c.h"
 
