@@ -6,7 +6,7 @@ import pybind11
 def call_pkgconfig(args):
     ans = subprocess.check_output(args)
     return ans.split()
-cflags = ['-std=c++14','-DPICOJSON_USE_INT64']
+cflags = ['-std=c++17','-DPICOJSON_USE_INT64']
 cflags.append('-I/home/james/work/oqtcpp/include')
 cflags.append('-fvisibility=hidden')
 #cflags.append('-Wshadow')

@@ -464,7 +464,7 @@ class FeatureProperties {
             if (mm.empty()) { return {}; }
             
             tabs[max_tile()]=mm;
-            int64 minzoom=geom->MinZoom();
+            int64 minzoom=geom->MinZoom().value();
             
             if (minzoom < max_tile()) {
                 for (int64 zoom = minzoom; zoom < max_tile(); zoom++) {
@@ -525,9 +525,9 @@ class FeatureProperties {
                     auto pt = std::dynamic_pointer_cast<oqt::geometry::Point>(geom);
                     if (!pt) { throw std::domain_error("not a Point"); }
                 
-                    if (pt->Layer() != 0) {
-                        if (zoom>=0) { key_strm << "layer=" << pt->Layer(); }
-                        pm["layer"] = picojson::value(pt->Layer());
+                    if (pt->Layer()) {
+                        if (zoom>=0) { key_strm << "layer=" << *pt->Layer(); }
+                        pm["layer"] = picojson::value(*pt->Layer());
                     }
                 }
                 
@@ -536,14 +536,14 @@ class FeatureProperties {
                     if (!ls) { throw std::domain_error("not a Linestring"); }
                     
                     
-                    if (ls->ZOrder() != 0) {
-                        if (zoom>=0) { key_strm << "z_order=" << ls->ZOrder(); }
-                        pm["z_order"] = picojson::value(ls->ZOrder());
+                    if (ls->ZOrder()) {
+                        if (zoom>=0) { key_strm << "z_order=" << *ls->ZOrder(); }
+                        pm["z_order"] = picojson::value(*ls->ZOrder());
                     }
                     
-                    if (ls->Layer() != 0) {
-                        if (zoom>=0) { key_strm << "layer=" << ls->Layer(); }
-                        pm["layer"] = picojson::value(ls->Layer());
+                    if (ls->Layer()) {
+                        if (zoom>=0) { key_strm << "layer=" << *ls->Layer(); }
+                        pm["layer"] = picojson::value(*ls->Layer());
                     }
                     pm["way_length"] = picojson::value(ls->Length());
                 }
@@ -553,14 +553,14 @@ class FeatureProperties {
                     if (!sp) { throw std::domain_error("not a SimplePolygon"); }
                     
                     
-                    if (sp->ZOrder() != 0) {
-                        if (zoom>=0) { key_strm << "z_order=" << sp->Layer(); }
-                        pm["z_order"] = picojson::value(sp->ZOrder());
+                    if (sp->ZOrder()) {
+                        if (zoom>=0) { key_strm << "z_order=" << *sp->ZOrder(); }
+                        pm["z_order"] = picojson::value(*sp->ZOrder());
                     }
                     
-                    if (sp->Layer() != 0) {
-                        if (zoom>=0) { key_strm << "layer=" << sp->Layer(); }
-                        pm["layer"] = picojson::value(sp->Layer());
+                    if (sp->Layer()) {
+                        if (zoom>=0) { key_strm << "layer=" << *sp->Layer(); }
+                        pm["layer"] = picojson::value(*sp->Layer());
                     }
                     pm["way_area"] = picojson::value(sp->Area());
                 }
@@ -570,14 +570,14 @@ class FeatureProperties {
                     if (!sp) { throw std::domain_error("not a ComplicatedPolygon"); }
                     
                     
-                    if (sp->ZOrder() != 0) {
-                        if (zoom>=0) { key_strm << "z_order=" << sp->ZOrder(); }
-                        pm["z_order"] = picojson::value(sp->ZOrder());
+                    if (sp->ZOrder()) {
+                        if (zoom>=0) { key_strm << "z_order=" << *sp->ZOrder(); }
+                        pm["z_order"] = picojson::value(*sp->ZOrder());
                     }
                     
-                    if (sp->Layer() != 0) {
-                        if (zoom>=0) { key_strm << "layer=" << sp->Layer(); }
-                        pm["layer"] = picojson::value(sp->Layer());
+                    if (sp->Layer()) {
+                        if (zoom>=0) { key_strm << "layer=" << *sp->Layer(); }
+                        pm["layer"] = picojson::value(*sp->Layer());
                     }
                     pm["way_area"] = picojson::value(sp->Area());
                 }
@@ -624,8 +624,12 @@ class MakeTileData {
         void make_alt_feature_data(xyz basetile, std::shared_ptr<geos_base> gst, std::shared_ptr<oqt::BaseGeometry> geom, const std::function<void(xyz,std::string,alt_feature_data&&)>& cb) const {
         
             oqt::TimeSingle ts;
-            int64 minzoom = geom->MinZoom();
-            if (minzoom < 0) { throw std::domain_error("not a valid geom"); }
+            
+            if (!geom->MinZoom()) {
+                throw std::domain_error("not a valid geom");
+            }
+            int64 minzoom = geom->MinZoom().value();
+            
             
             int64 id_ = geom->Id();
             if (geom->Type()==oqt::ElementType::ComplicatedPolygon) {
@@ -733,7 +737,7 @@ class MakeTileData {
             
             for (auto ele: block->Objects()) {
                 auto geom = std::dynamic_pointer_cast<oqt::BaseGeometry>(ele);
-                if (geom && (geom->MinZoom()>=0)) {
+                if (geom && (geom->MinZoom())) {
                     
                     try {
                         make_alt_feature_data(tt, gst,geom, cb);
@@ -894,6 +898,9 @@ void export_maketiledata(py::module& m) {
         .def("prep_geometries", &MakeTileData::prep_geometries)
         
         .def("prep_feature_table", [](const MakeTileData& mtd, std::shared_ptr<oqt::BaseGeometry> geom, int64 geom_ty) {
+            if ((!geom) || (!geom->MinZoom())) {
+                throw std::domain_error("not a valid geometry");
+            }
             return mtd.get_feature_properties().prep_feature_table(geom,geom_ty);
         })
         .def("check_feature", [](const MakeTileData& mtd, std::shared_ptr<oqt::BaseGeometry> geom, int64 zoom) {
